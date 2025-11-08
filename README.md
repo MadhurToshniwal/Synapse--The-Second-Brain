@@ -88,7 +88,7 @@ docker run -d --name synapse-db -e POSTGRES_PASSWORD=synapse2024 -p 5432:5432 an
 
 ### The Problem- **Claude Sonnet 4.5**: Content analysis, summarization, OCR, query understanding
 
-- **Gemini Embeddings**: 3072-dimensional vectors for semantic search
+- **Hugging Face MPNet**: 768-dimensional vectors for semantic search (all-mpnet-base-v2)
 
 - You save articles, products, and notes across dozens of platforms- **Vision AI**: Image analysis and text extraction using Claude Vision API
 
@@ -112,7 +112,7 @@ Synapse uses **AI to understand** what you save, creates **semantic embeddings**
 
 - **Semantic Understanding**: Search like "articles about AI from last week"
 
-## 💡 The Vision- **Vector Similarity**: 3072-dimensional Gemini embeddings with pgvector
+## 💡 The Vision- **Vector Similarity**: 768-dimensional MPNet embeddings with pgvector
 
 - **Smart Filtering**: Content type, date range, tags, price
 
@@ -234,11 +234,11 @@ Synapse uses **AI to understand** what you save, creates **semantic embeddings**
 
 ┌────────────────┐ ┌─────────────┐ ┌──────────────┐
 
-- **⚡ Asynchronous Processing**│  CLAUDE API    │ │  GEMINI     │ │  SCRAPERS    │
+- **⚡ Asynchronous Processing**│  CLAUDE API    │ │  MPNet 🤗   │ │  SCRAPERS    │
 
   - Background job queues for speed│  - Analysis    │ │  - Embeddings│ │  - Cheerio   │
 
-  - Retry logic with exponential backoff│  - Extraction  │ │             │ │  - Metadata  │
+  - Retry logic with exponential backoff│  - Extraction  │ │  (768-dim)   │ │  - Metadata  │
 
   - Progress tracking and notifications│  - Tagging     │ │             │ │              │
 
@@ -264,7 +264,7 @@ Synapse uses **AI to understand** what you save, creates **semantic embeddings**
 
   - User authentication with Clerk- **Claude API** - Content understanding and analysis
 
-  - API key management- **Google Gemini API** - Text embeddings generation
+  - API key management- **Hugging Face Transformers** - Sentence embeddings (all-mpnet-base-v2)
 
   - Rate limiting- **Cheerio** - Web scraping and content extraction
 
@@ -370,9 +370,9 @@ Synapse uses **AI to understand** what you save, creates **semantic embeddings**
 
 ┌──────────────┐ ┌───────────┐ ┌──────────┐ ┌─────────────┐```bash
 
-│ Web Scraper  │ │  Claude   │ │  Gemini  │ │   Tesseract │cd frontend
+│ Web Scraper  │ │  Claude   │ │  MPNet   │ │   Tesseract │cd frontend
 
-│ (Puppeteer)  │ │    API    │ │   API    │ │  (OCR.js)   │
+│ (Puppeteer)  │ │    API    │ │ (HF 🤗)  │ │  (OCR.js)   │
 
 │              │ │           │ │          │ │             │# Install dependencies (if not already installed)
 
@@ -614,143 +614,163 @@ GET /health
 
 ## 🤖 AI & ML Components
 
-#### Update Item
+### 1. Large Language Models (LLMs)
 
-### 1. Large Language Models (LLMs)```
-
-PUT /api/items/:id
-
-#### **Claude 3.5 Sonnet** (Anthropic)Content-Type: application/json
+#### **Claude 3.5 Sonnet** (Anthropic)
 
 - **Use Cases:**
+  - Content analysis and metadata extraction
+  - Natural language query understanding
+  - Search result re-ranking
+  - Answer extraction from documents
+  - Tag generation
+  - OCR text correction
 
-  - Content analysis and metadata extraction{
-
-  - Natural language query understanding  "title": "New title",
-
-  - Search result re-ranking  "tags": ["tag1", "tag2"],
-
-  - Answer extraction from documents  "is_favorite": true
-
-  - Tag generation}
-
-  - OCR text correction```
-
-
-
-- **Model Specifications:**#### Delete Item
-
-  - Context window: 200K tokens```
-
-  - Output: Up to 4K tokensDELETE /api/items/:id
-
-  - Multimodal: Text + Image support```
-
+- **Model Specifications:**
+  - Context window: 200K tokens
+  - Output: Up to 4K tokens
+  - Multimodal: Text + Image support
   - API: Anthropic Messages API
 
-### Search
-
 - **Implementation:**
-
-```javascript```
-
-// Content AnalysisPOST /api/search
-
-const analysis = await claudeService.analyzeContent(content, type, url);Content-Type: application/json
-
+```javascript
+// Content Analysis
+const analysis = await claudeService.analyzeContent(content, type, url);
 // Returns: { title, summary, tags, metadata, key_points }
 
-{
+// Query Understanding
+const parsed = await claudeService.parseSearchQuery(userQuery);
+// Returns: { intent, filters, searchTerms, contentType }
 
-// Query Understanding  "query": "black leather shoes under $300"
-
-const parsed = await claudeService.parseSearchQuery(userQuery);}
-
-// Returns: { intent, filters, searchTerms, contentType }```
-
-
-
-// Answer Extraction---
-
+// Answer Extraction
 const answer = await claudeService.extractAnswer(query, documents);
-
-// Returns: { answer, source, confidence, context }## 🗄️ Database Schema
-
+// Returns: { answer, source, confidence, context }
 ```
-
-### Items Table
-
-### 2. Embedding Models```sql
-
-CREATE TABLE items (
-
-#### **Gemini Embedding 001** (Google)    id UUID PRIMARY KEY,
-
-- **Use Cases:**    user_id UUID,
-
-  - Semantic search    title TEXT,
-
-  - Content similarity matching    description TEXT,
-
-  - Duplicate detection    content TEXT,
-
-  - Related content recommendations    raw_data JSONB,
-
-    content_type VARCHAR(50),
-
-- **Model Specifications:**    url TEXT,
-
-  - Dimensions: 768    source_domain VARCHAR(255),
-
-  - Max input tokens: 2048    metadata JSONB,
-
-  - API: Google Generative AI    thumbnail_url TEXT,
-
-    image_urls TEXT[],
-
-- **Implementation:**    tags TEXT[],
-
-```javascript    is_favorite BOOLEAN,
-
-// Generate embeddings    is_archived BOOLEAN,
-
-const vector = await embeddingService.generateEmbedding(text);    created_at TIMESTAMP,
-
-// Returns: Float array of 768 dimensions    updated_at TIMESTAMP
-
-);
-
-// Batch processing```
-
-const vectors = await embeddingService.generateEmbeddingBatch(texts);
-
-// Returns: Array of vectors### Embeddings Table
-
-``````sql
-
-CREATE TABLE embeddings (
-
-### 3. OCR (Optical Character Recognition)    id UUID PRIMARY KEY,
-
-    item_id UUID REFERENCES items(id),
-
-#### **Tesseract.js**    embedding vector(768),
-
-- **Use Cases:**    embedding_model VARCHAR(100),
-
-  - Handwritten note extraction    created_at TIMESTAMP
-
-  - Screenshot text recognition);
-
-  - Document digitization```
-
-  - Image-based search
 
 ---
 
-- **Implementation:**
+### 2. Embedding Models
 
-```javascript## 🔧 Configuration
+#### **all-mpnet-base-v2** (Hugging Face 🤗 Transformers)
+
+- **Model:** `sentence-transformers/all-mpnet-base-v2`
+- **Framework:** Hugging Face Transformers library
+
+- **Use Cases:**
+  - Semantic search and retrieval
+  - Content similarity matching
+  - Duplicate detection
+  - Related content recommendations
+  - Cross-lingual understanding
+
+- **Model Specifications:**
+  - Architecture: **MPNet** (Masked and Permuted Pre-training)
+  - Dimensions: **768-dimensional dense vectors**
+  - Max input tokens: 384 tokens
+  - Training: 1B+ sentence pairs
+  - Performance: State-of-the-art on semantic similarity benchmarks
+
+- **Why MPNet?**
+  - ✅ Superior semantic understanding vs BERT/RoBERTa
+  - ✅ Balanced speed-accuracy trade-off
+  - ✅ Open-source and locally hostable (no API costs)
+  - ✅ No rate limits or API dependencies
+  - ✅ Privacy-friendly (runs on your server)
+  - ✅ Works offline
+
+- **Implementation:**
+```javascript
+// Node.js backend calls Python service
+const vector = await embeddingService.generateEmbedding(text);
+// Returns: Float array of 768 dimensions
+
+// Batch processing for efficiency
+const vectors = await embeddingService.generateEmbeddingBatch(texts);
+// Returns: Array of 768-dim vectors
+```
+
+```python
+# Python embedding service using Hugging Face
+from sentence_transformers import SentenceTransformer
+
+# Load model (cached after first load)
+model = SentenceTransformer('sentence-transformers/all-mpnet-base-v2')
+
+# Generate embeddings
+embeddings = model.encode([
+    "Article about machine learning",
+    "Product: wireless headphones"
+])
+# Returns: numpy array of shape (2, 768)
+```
+
+---
+
+### 3. OCR (Optical Character Recognition)
+
+#### **Tesseract.js**
+
+- **Use Cases:**
+  - Handwritten note extraction
+  - Screenshot text recognition
+  - Document digitization
+  - Image-based search
+
+- **Implementation:**
+```javascript
+const { createWorker } = require('tesseract.js');
+
+async function extractText(imagePath) {
+  const worker = await createWorker('eng');
+  const { data: { text } } = await worker.recognize(imagePath);
+  await worker.terminate();
+  return text;
+}
+```
+
+---
+
+## 🗄️ Database Schema
+
+### Items Table
+
+```sql
+CREATE TABLE items (
+    id UUID PRIMARY KEY,
+    user_id UUID,
+    title TEXT,
+    description TEXT,
+    content TEXT,
+    raw_data JSONB,
+    content_type VARCHAR(50),
+    url TEXT,
+    source_domain VARCHAR(255),
+    metadata JSONB,
+    thumbnail_url TEXT,
+    image_urls TEXT[],
+    tags TEXT[],
+    is_favorite BOOLEAN,
+    is_archived BOOLEAN,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+```
+
+### Embeddings Table
+
+```sql
+CREATE TABLE embeddings (
+    id UUID PRIMARY KEY,
+    item_id UUID REFERENCES items(id),
+    embedding vector(768), -- MPNet embedding dimensions
+    embedding_model VARCHAR(100), -- 'all-mpnet-base-v2'
+    created_at TIMESTAMP
+);
+```
+
+---
+
+## 🔧 Configuration
 
 // Extract text from image
 
@@ -972,7 +992,7 @@ npm run dev
 
 #### 4. Setup Chrome Extension- **Anthropic** for the powerful Claude API
 
-```bash- **Google** for Gemini embeddings API
+```bash- **Hugging Face** for open-source transformer models
 
 cd ../extension- **Appointy** for the internship opportunity
 
@@ -1451,8 +1471,8 @@ CREATE TABLE items (
 CREATE TABLE embeddings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     item_id UUID REFERENCES items(id) ON DELETE CASCADE,
-    embedding vector(768), -- Gemini embedding dimensions
-    embedding_model VARCHAR(100) DEFAULT 'gemini-embedding-001',
+    embedding vector(768), -- MPNet embedding dimensions (all-mpnet-base-v2)
+    embedding_model VARCHAR(100) DEFAULT 'all-mpnet-base-v2',
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(item_id, embedding_model)
 );
@@ -1765,7 +1785,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Built for **Appointy Internship Drive 2025**
 - Powered by **Claude 3.5 Sonnet** (Anthropic)
-- Embeddings by **Gemini** (Google)
+- Embeddings by **Hugging Face Transformers** (all-mpnet-base-v2)
 - OCR by **Tesseract.js**
 - UI inspired by **Notion** and **Pinterest**
 
