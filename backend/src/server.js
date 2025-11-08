@@ -4,14 +4,18 @@ const cors = require('cors');
 const { initDatabase } = require('./config/database');
 
 const app = express();
+const path = require('path');
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: ['http://localhost:3000', 'http://localhost:3001'],
   credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Request logging
 app.use((req, res, next) => {
@@ -28,15 +32,60 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API routes placeholder
+// Import routes
+const itemsRoutes = require('./routes/items');
+const searchRoutes = require('./routes/search');
+const authRoutes = require('./routes/auth');
+const mcpRoutes = require('./routes/mcp');
+const chatRoutes = require('./routes/chat');
+
+// API routes
+app.use('/api/items', itemsRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/mcp', mcpRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/admin', require('./routes/admin'));
+
+// API info endpoint
 app.get('/api', (req, res) => {
   res.json({
     message: 'Synapse API v1.0',
+    version: '1.0.0',
     endpoints: {
-      health: '/health',
-      items: '/api/items',
-      search: '/api/search',
-      auth: '/api/auth'
+      health: 'GET /health',
+      auth: {
+        register: 'POST /api/auth/register',
+        login: 'POST /api/auth/login',
+        profile: 'GET /api/auth/me',
+        updateProfile: 'PUT /api/auth/profile',
+        changePassword: 'POST /api/auth/change-password'
+      },
+      items: {
+        create: 'POST /api/items',
+        list: 'GET /api/items',
+        get: 'GET /api/items/:id',
+        update: 'PUT /api/items/:id',
+        delete: 'DELETE /api/items/:id'
+      },
+      search: {
+        search: 'POST /api/search',
+        similar: 'GET /api/search/similar/:itemId',
+        suggestions: 'GET /api/search/suggestions'
+      },
+      mcp: {
+        capabilities: 'GET /api/mcp/capabilities',
+        context: 'GET /api/mcp/context',
+        search: 'POST /api/mcp/search',
+        searchByColor: 'POST /api/mcp/search-by-color',
+        analyze: 'POST /api/mcp/analyze'
+      },
+      chat: {
+        sendMessage: 'POST /api/chat',
+        getConversations: 'GET /api/chat/conversations',
+        getConversation: 'GET /api/chat/:conversationId',
+        deleteConversation: 'DELETE /api/chat/:conversationId'
+      }
     }
   });
 });
